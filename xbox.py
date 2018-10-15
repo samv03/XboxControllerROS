@@ -46,33 +46,33 @@ import sys
 
 controller_values = {
     # Analog Joysticks
-    "ABS_X": 0,  # corresponds to LX in old code
-    "ABS_Y": 0,  # corresponds to LY in old code
-    "ABS_RX": 0,  # corresponds to RX in old code
-    "ABS_RY": 0,  # corresponds to RY in old code
+    "ABS_X": 0, 
+    "ABS_Y": 0,
+    "ABS_RX": 0,
+    "ABS_RY": 0,
 
     # Analog Triggers
-    "ABS_RZ": 0,  # corresponds to RT in old code
-    "ABS_Z": 0,  # corresponds to LT in old code
+    "ABS_RZ": 0,
+    "ABS_Z": 0,
 
     # Face Buttons
-    "BTN_SOUTH": 0,  # corresponds to BA in old code
-    "BTN_EAST": 0,  # corresponds to BB in old code
-    "BTN_NORTH": 0,  # corresponds to BX in old code
-    "BTN_WEST": 0,  # corresponds to BY in old code
+    "BTN_SOUTH": 0,
+    "BTN_EAST": 0,
+    "BTN_NORTH": 0,
+    "BTN_WEST": 0,
 
     # Start, Select, and Menu
-    "BTN_START": 0,  # corresponds to ST in old code
-    "BTN_SELECT": 0,  # corresponds to SL in old code
-    "BTN_MODE": 0,  # corresponds to MD in old code
+    "BTN_START": 0,
+    "BTN_SELECT": 0,
+    "BTN_MODE": 0,
 
     # Stick Buttons
-    "BTN_THUMBR": 0,  # corresponds to RS in old code
-    "BTN_THUMBL": 0,  # corresponds to LS in old code
+    "BTN_THUMBR": 0,
+    "BTN_THUMBL": 0,
 
     # Bumpers
-    "BTN_TR": 0,  # corresponds to RB in old code
-    "BTN_TL": 0,  # corresponds to LB in old code
+    "BTN_TR": 0,
+    "BTN_TL": 0,
 
     # Directional Pad (D-Pad)
     # These values are exceptions to the other cases...
@@ -107,6 +107,7 @@ def mapDeadBand(value):
         return int(new_value)
     
 
+# ROS publisher setup - Unsigned 8 bit integers
 pub1 = rospy.Publisher('controller_input1', UInt8, queue_size=10)
 pub2 = rospy.Publisher('controller_input2', UInt8, queue_size=10)
 pub3 = rospy.Publisher('controller_input3', UInt8, queue_size=10)
@@ -123,16 +124,21 @@ while True:
         for event in events:
             controller_values[event.code] = event.state
 
+        # Initialize this program as a ROS node
         rospy.init_node('xbox_control', anonymous=True)
+        
+        # Shift in controller button values into the first control string, bit by bit
         control_string_1 = (controller_values["BTN_SOUTH"] << 7) + (controller_values["BTN_EAST"] << 6) + (controller_values["BTN_NORTH"] << 5) + (controller_values["BTN_WEST"] << 4) + (controller_values["BTN_START"] << 3) + (controller_values["BTN_SELECT"] << 2)
 
+        # Shift in controller trigger values and reduce resolution down to 4 bits each
         control_string_3 = ((controller_values["ABS_RZ"] / 64) << 4) + ((controller_values["ABS_Z"] / 64) & 0b00001111)
 
-        
+        # Shift in controller joystick values, remove dead zone, and reduce resolution down to 4 bits each
         control_val_ABS_X = (((mapDeadBand(controller_values["ABS_X"]) + 32768) >> 12) & 0b00001111 )
         control_val_ABS_Y = ((((mapDeadBand(controller_values["ABS_Y"]) + 32768) >> 12) & 0b00001111) << 4)
 
-        #check if the new values are the same as the old to save bandwidth
+        # Check if the new values are the same as the old to save bandwidth
+        # If the values are the same it will not publish the second control string
         if control_val_ABS_X != _oldABS_X or control_val_ABS_Y != _oldABS_Y:
             control_string_2 = control_val_ABS_X + control_val_ABS_Y
             pub2.publish(control_string_2)
